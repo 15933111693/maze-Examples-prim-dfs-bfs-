@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <style>
+        .row {
+            display: flex;
+        }
+
+        .piece {
+            width: 10px;
+            height: 10px;
+        }
+
+        .player {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: gray;
+        }
+    </style>
+
+    <div class="root"></div>
+
+
+    <script>
+        const randomMap = function (n, m) {
+            const map = new Array(n).fill(1).map(i => new Array(m).fill(1))
+            const vis = new Array(n).fill(0).map(i => new Array(m).fill(0))
+            for (let i = 0; i < n; i++) vis[i][0] = vis[i][m - 1] = 1
+            for (let j = 0; j < m; j++) vis[0][j] = vis[n - 1][j] = 1
+            for (let i = 1; i < n - 1; i += 2)
+                for (let j = 1; j < n - 1; j += 2) map[i][j] = 0
+
+            const dx2 = [0, -2, 0, 2],
+                dy2 = [2, 0, -2, 0]
+            const dx1 = [0, -1, 0, 1],
+                dy1 = [1, 0, -1, 0]
+            const check = (arr) => {
+                for (let i = 0; i < 4; i++)
+                    if (arr[i] === 0) return true
+                return false
+            }
+            const dfs = () => {
+                let stack = []
+                stack.push([1, 1])
+                while (stack.length) {
+                    let fr = stack.pop()
+                    let x = fr[0],
+                        y = fr[1]
+                    const d = (Math.random() * 100 / 25) >> 0
+                    const dir = [0, 0, 0, 0]
+                    for (let i = d; check(dir); i = (i + 1) % 4) {
+                        let a = x + dx2[i],
+                            b = y + dy2[i]
+                        dir[i] = 1
+                        if (a >= 0 && b >= 0 && a < n && b < m && vis[a][b] === 0) {
+                            map[x + dx1[i]][y + dy1[i]] = 0
+                            vis[a][b] = 1
+                            stack.push([a, b])
+                        }
+                    }
+                }
+            }
+            // 蓄水池抽样
+            const random = (n) => {
+                let idx = 1
+                for(let i=1;i<=n;i++) {
+                    if(Math.random() > 1/i) idx = i
+                }
+                return idx - 1
+            }
+            const findwall = (arr, x, y) => {
+                for(let i=0;i<arr.length;i++) {
+                    if(arr[i][0] == x && arr[i][1] == y) return i
+                }
+                return -1
+            }
+
+            const prim = () => {
+                // dir: 0 右 1 上 2 左 3 下 象限图
+                const arr = [[1,2,0], [2,1,3]]
+                vis[1][1] = 1
+                while(arr.length) {
+                    const len = arr.length
+                    // 针对每个元素1/n的几率抽取
+                    // const randomIdx = random(len)
+                    // 随机一个数字
+                    const randomIdx = (Math.random() * len) >> 0
+                    // 墙
+                    let [x, y, d] = arr[randomIdx]
+                    arr.splice(randomIdx, 1)
+                    map[x][y] = 0
+                    vis[x][y] = 1
+
+                    // 打通的当前连通块
+                    x += dx1[d]
+                    y += dy1[d]
+                    vis[x][y] = 1
+
+                    // 加墙
+                    for(let i=0;i<4;i++) {
+                        let a = x + dx1[i], b = y + dy1[i]
+                        if(a > 0 && b > 0 && a < n-1 && b < m-1 && vis[a][b] == 0 && findwall(arr, a, b) == -1) {
+                            arr.push([a, b, i])
+                        }
+                    }
+
+                    // 打通连通块
+                    for(let i=0;i<4;i++) {
+                        let a = x + dx2[i], b = y + dy2[i]
+                        if(a > 0 && b > 0 && a < n-1 && b < m-1 && vis[a][b] == 1) {
+                            let c = x + dx1[i], d = y + dy1[i]
+                            let idx = findwall(arr, c, d)
+                            if(idx != -1) arr.splice(idx, 1)
+                        }
+                    }
+                }
+            }
+
+            // dfs()
+            prim()
+            map[n - 2][m - 2] = "F"
+            return map
+        }
+        let mapArray = randomMap(101, 101)
+        class Map {
+            constructor(map, rootDiv) {
+                this._map = map
+                this.rootDiv = rootDiv
+                this.init()
+            }
+            init() {
+                this.render(this.rootDiv)
+            }
+            render(rootDiv) {
+                const fra = document.createDocumentFragment()
+                const map = this._map
+
+                for (let i = 0; i < map.length; i++) {
+                    let rowfra = document.createDocumentFragment()
+                    let row = document.createElement('div')
+                    row.className = 'row'
+                    rowfra.appendChild(row)
+                    for (let j = 0; j < map[0].length; j++) {
+                        let piece = document.createElement('div')
+                        piece.className = 'piece'
+                        if (map[i][j] == 1) {
+                            piece.style.background = 'black'
+                            row.appendChild(piece)
+                        }
+                        if (map[i][j] == 0) {
+                            piece.style.background = 'white'
+                            row.appendChild(piece)
+                        }
+                        if (map[i][j] == 'F') {
+                            piece.style.background = 'white'
+                            row.appendChild(piece)
+                            this.fin = [i, j]
+                        }
+                    }
+                    fra.appendChild(rowfra)
+                }
+
+                rootDiv.appendChild(fra)
+            }
+        }
+
+        class Player {
+            constructor(position) {
+                this.init(position)
+                this.position = [1, 1]
+            }
+            init(position) {
+                this._player = document.createElement('div')
+                this._player.className = 'player'
+                this._player.style.left = position[0]
+                this._player.style.top = position[1]
+                document.body.appendChild(this._player)
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.init()
+            }
+            init() {
+                this.map = new Map(mapArray, document.querySelector('.root'))
+                const rootDiv = document.querySelector('.root > div:nth-child(2) > div:nth-child(2)')
+                this.player = new Player([rootDiv.offsetLeft + 'px', rootDiv.offsetTop + 'px'])
+                this.autoBtn = document.createElement("button")
+                this.autoBtn.innerText = '自动寻路'
+                this.autoBtn.onclick = this.getwin.bind(this)
+                document.body.appendChild(this.autoBtn)
+                this.addlistener()
+            }
+            addlistener() {
+                let listener = document.addEventListener('keydown', this.keydown.bind(this))
+            }
+            keydown(e) {
+                let row = this.player.position[0]
+                let col = this.player.position[1]
+                switch (e.code) {
+                    case 'ArrowUp':
+                        if (this.map._map[row - 1][col] == 1) return false
+                        this.player._player.style.top = (parseInt(this.player._player.style.top) - 10) + 'px'
+                        this.player.position = [row - 1, col]
+                        break
+                    case 'ArrowLeft':
+                        if (this.map._map[row][col - 1] == 1) return false
+                        this.player._player.style.left = (parseInt(this.player._player.style.left) - 10) + 'px'
+                        this.player.position = [row, col - 1]
+                        break
+                    case 'ArrowRight':
+                        if (this.map._map[row][col + 1] == 1) return false
+                        this.player._player.style.left = (parseInt(this.player._player.style.left) + 10) + 'px'
+                        this.player.position = [row, col + 1]
+                        break
+                    case 'ArrowDown':
+                        if (this.map._map[row + 1][col] == 1) return false
+                        this.player._player.style.top = (parseInt(this.player._player.style.top) + 10) + 'px'
+                        this.player.position = [row + 1, col]
+                        break
+                }
+                if (this.player.position[0] == this.map.fin[0] && this.player.position[1] == this.map.fin[1]) {
+                    const win = document.createElement('div')
+                    win.innerText = '你赢了'
+                    document.body.appendChild(win)
+                    document.removeEventListener('keydown', this.keydown)
+                }
+            }
+
+            getpath(map) {
+                const dx = [0, 1, 0, -1],
+                    dy = [1, 0, -1, 0]
+                const n = map.length,
+                    m = map[0].length
+                const path = []
+                const queue = []
+                let endx, endy
+                const d = new Array(n).fill(0).map(i => new Array(m).fill(0).map(i => new Array(2).fill(0)))
+                for (let i = 0; i < n; i++)
+                    for (let j = 0; j < m; j++) {
+                        if (map[i][j] == 'F') endx = i, endy = j
+                        d[i][j][0] = new Array(2)
+                    }
+                queue.push([1, 1])
+                while (queue.length) {
+                    let cur = queue.shift()
+                    let x = cur[0],
+                        y = cur[1]
+                    for (let i = 0; i < 4; i++) {
+                        let a = x + dx[i],
+                            b = y + dy[i]
+                        if (a >= 0 && b >= 0 && a < n && b < m && map[a][b] != 1 && d[a][b][1] == 0) {
+                            d[a][b][0][0] = x
+                            d[a][b][0][1] = y
+                            d[a][b][1] = d[x][y][1] + 1
+                            queue.push([a, b])
+                        }
+                    }
+                }
+                let i = endx,
+                    j = endy
+                path.push([i, j])
+                while (i != 1 || j != 1) {
+                    let a = i,
+                        b = j
+                    i = d[a][b][0][0]
+                    j = d[a][b][0][1]
+                    path.push([i, j])
+                }
+
+                return path.reverse()
+            }
+
+            getDir() {
+                const path = this.getpath(this.map._map)
+                const dirpath = []
+                const n = path.length
+                for (let i = 1; i < n; i++) {
+                    const last = path[i - 1],
+                        cur = path[i]
+                    if (last[0] == cur[0]) {
+                        if (last[1] == cur[1] + 1) dirpath.push('ArrowLeft')
+                        else dirpath.push('ArrowRight')
+                    } else {
+                        if (last[0] == cur[0] + 1) dirpath.push('ArrowUp')
+                        else dirpath.push('ArrowDown')
+                    }
+                }
+                return dirpath
+            }
+            async getwin() {
+                const e = {
+                    code: ''
+                }
+                const path = this.getDir()
+                for (let i of path) {
+                    e.code = i
+                    await this.next(this.keydown, e)
+                }
+            }
+            next(fun, e) {
+                fun = fun.bind(this)
+                return new Promise((res, rej) => {
+                    setTimeout(() => {
+                        fun(e)
+                        res()
+                    }, 100)
+                })
+            }
+        }
+
+        new Game()
+    </script>
+</body>
+
+</html>
